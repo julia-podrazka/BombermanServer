@@ -1,7 +1,6 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include "server.h"
-#include "game.h"
 
 using namespace std;
 namespace po = boost::program_options;
@@ -36,6 +35,7 @@ void Server::parse_program_options(int argc, char *argv[]) {
                 ("port,p", po::value<uint16_t>(&port)->required()->
                         value_name("<u16>"))
                 ("seed,s", po::value<uint32_t>(&game_options.seed)->
+                        default_value(static_cast<uint32_t>(chrono::system_clock::now().time_since_epoch().count()))->
                         value_name("<u32, parametr opcjonalny>"))
                 ("size-x,x", po::value<uint16_t>(&game_options.size_x)->required()->
                         value_name("<u16>"))
@@ -77,6 +77,8 @@ int main(int argc, char* argv[]) {
 
     Server server;
     server.parse_program_options(argc, argv);
+
+    Game game(server.get_game_options());
 
     return 0;
 }
