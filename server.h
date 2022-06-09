@@ -14,7 +14,7 @@ public:
 
     Server();
 
-    uint16_t get_port() const {
+    [[nodiscard]] uint16_t get_port() const {
         return port;
     }
 
@@ -23,6 +23,8 @@ public:
     }
 
     void parse_program_options(int argc, char *argv[]);
+
+    void accept_players(boost::asio::ip::tcp::acceptor *acceptor, ServerGame *server_game);
 
 };
 

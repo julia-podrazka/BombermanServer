@@ -1,9 +1,11 @@
 #include <iostream>
 #include <boost/program_options.hpp>
+#include <boost/asio.hpp>
 #include "server.h"
 
 using namespace std;
 namespace po = boost::program_options;
+using boost::asio::ip::tcp;
 
 Server::Server() = default;
 
@@ -71,14 +73,34 @@ void Server::parse_program_options(int argc, char *argv[]) {
 
 }
 
+void Server::accept_players(tcp::acceptor *acceptor, ServerGame *server_game) {
+
+    acceptor->async_accept([this, &acceptor, &server_game](boost::system::error_code ec, tcp::socket socket) {
+        if (!ec) {
+            // akceptować playerów
+        }
+        accept_players(acceptor, server_game);
+    });
+
+}
+
 int main(int argc, char* argv[]) {
 
     std::cout << "Hello, World!" << std::endl;
 
+    // Parse program options.
     Server server;
     server.parse_program_options(argc, argv);
 
-    Game game(server.get_game_options());
+    // Create ServerGame that will hold the state of the game.
+    ServerGame game(server.get_game_options());
+
+    // Accept players and run io_context.
+    boost::asio::io_context io_context;
+    tcp::endpoint endpoint(tcp::v6(), server.get_port());
+    tcp::acceptor acceptor(io_context, endpoint);
+    server.accept_players(&acceptor, &game);
+    io_context.run();
 
     return 0;
 }

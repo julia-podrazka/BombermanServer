@@ -1,5 +1,5 @@
-#ifndef SIK_ZADANIE_2_COMMUNICATION_H
-#define SIK_ZADANIE_2_COMMUNICATION_H
+#ifndef CLIENT_COMMUNICATION_H
+#define CLIENT_COMMUNICATION_H
 
 #include <iostream>
 #include <boost/array.hpp>
@@ -42,4 +42,4 @@ public:
 
 };
 
-#endif //SIK_ZADANIE_2_COMMUNICATION_H
+#endif

@@ -1,7 +1,7 @@
-#ifndef GAME_H
-#define GAME_H
+#ifndef SERVER_GAME_H
+#define SERVER_GAME_H
 
-#include "messages.h"
+#include "server_communication.h"
 
 class ServerGame {
 

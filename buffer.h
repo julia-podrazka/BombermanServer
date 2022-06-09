@@ -19,12 +19,14 @@ class Buffer {
 
 private:
 
-    std::vector<uint8_t> buffer_send;
-    size_t buffer_index_send; // place in a buffer_send where next information should be written
+    std::vector<uint8_t> buffer_send_client;
+    size_t buffer_index_send_client; // place in a buffer_send_client where next information should be written
+    std::vector<uint8_t> buffer_send_server;
+    size_t buffer_index_send_server;
     size_t buffer_index_read_udp;
     size_t buffer_index_read_tcp;
 
-    void clean_send_buffer();
+    void clean_send_buffer_client();
 
     void write_lobby_message(const ClientMessageToGUI::LobbyMessage &lobby_message);
 
@@ -56,22 +58,26 @@ public:
     T convert_from_network(T number);
 
     template<typename T>
-    void write_number_to_buffer(T number);
+    void write_number_to_buffer(T number, std::vector<uint8_t> &buffer, size_t *buffer_index);
 
-    void write_string_to_buffer(const std::string& word);
+    void write_string_to_buffer(const std::string &word, std::vector<uint8_t> &buffer, size_t *buffer_index);
 
     std::vector<uint8_t> &write_client_message_to_server(const ClientMessageToServer &client_message, size_t *len);
 
     std::vector<uint8_t> &write_client_message_to_gui(const ClientMessageToGUI &client_message, size_t *len);
 
+    std::vector<uint8_t> &write_server_message_to_client(const ServerMessageToClient &server_message, size_t *len);
+
     template<typename T>
     void read_number_from_buffer(T &number, std::vector<uint8_t> &buffer, size_t *buffer_index);
 
-    std::string read_string_from_buffer(std::vector<uint8_t> &buffer, size_t len);
+    std::string read_string_from_buffer(std::vector<uint8_t> &buffer, size_t len, size_t *buffer_index);
 
     bool read_gui_message_to_client(GUIMessageToClient &gui_message, std::vector<uint8_t> &buffer, size_t len);
 
     size_t read_server_message_to_client(ServerMessageToClient &server_message, std::vector<uint8_t> &buffer, size_t len);
+
+    size_t read_client_message_to_server(ClientMessageToServer &client_message, std::vector<uint8_t> &buffer, size_t len);
 
 };
 

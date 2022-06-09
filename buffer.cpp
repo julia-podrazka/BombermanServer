@@ -7,21 +7,24 @@
 #define UIN16_T_BYTES 2
 #define UIN8_T_BYTES 1
 #define SERVER_ENUMS 4
+#define CLIENT_ENUMS 3
+#define DIRECTION_ENUMS 3
 #define GUI_ENUMS 2
 
 using namespace std;
 
-void Buffer::clean_send_buffer() {
+void Buffer::clean_send_buffer_client() {
 
-    buffer_index_send = 0;
-    fill(buffer_send.begin(), buffer_send.end(), 0);
+    buffer_index_send_client = 0;
+    fill(buffer_send_client.begin(), buffer_send_client.end(), 0);
 
 }
 
 Buffer::Buffer() {
 
-    buffer_send.resize(MAX_BUFFER_SIZE);
-    clean_send_buffer();
+    buffer_send_client.resize(MAX_BUFFER_SIZE);
+    buffer_send_server.resize(MAX_BUFFER_SIZE);
+    clean_send_buffer_client();
     buffer_index_read_tcp = 0;
     buffer_index_read_udp = 0;
 
@@ -66,111 +69,146 @@ template<> uint32_t Buffer::convert_from_network<uint32_t>(uint32_t number) {
 // Converting number from host to network and writing it in a buffer at a
 // right index.
 template<typename T>
-void Buffer::write_number_to_buffer(T number) {
+void Buffer::write_number_to_buffer(T number, vector<uint8_t> &buffer, size_t *buffer_index) {
 
-    *(T *)(&buffer_send[buffer_index_send]) = convert_to_network(number);
-    buffer_index_send += sizeof(T);
+    *(T *)(&buffer[(*buffer_index)]) = convert_to_network(number);
+    (*buffer_index) += sizeof(T);
 
 }
 
-void Buffer::write_string_to_buffer(const string& word) {
+void Buffer::write_string_to_buffer(const string &word, vector<uint8_t> &buffer, size_t *buffer_index) {
 
-    write_number_to_buffer(uint8_t(word.length()));
-    memcpy((&buffer_send[buffer_index_send]), word.c_str(), word.length());
-    buffer_index_send += word.length();
+    write_number_to_buffer(uint8_t(word.length()), buffer, buffer_index);
+    memcpy((&buffer[(*buffer_index)]), word.c_str(), word.length());
+    (*buffer_index) += word.length();
 
 }
 
 vector<uint8_t> &Buffer::write_client_message_to_server(const ClientMessageToServer &client_message, size_t *len) {
 
-    clean_send_buffer();
+    clean_send_buffer_client();
     ClientMessageToServer::MessageType type = client_message.message_type;
 
-    write_number_to_buffer(uint8_t(type));
+    write_number_to_buffer(uint8_t(type), buffer_send_client, &buffer_index_send_client);
     if (type == ClientMessageToServer::Join)
-        write_string_to_buffer(get<string>(client_message.message_arguments));
+        write_string_to_buffer(get<string>(client_message.message_arguments), buffer_send_client, &buffer_index_send_client);
     else if (type == ClientMessageToServer::Move)
-        write_number_to_buffer(uint8_t(get<Direction>(client_message.message_arguments)));
+        write_number_to_buffer(uint8_t(get<Direction>(client_message.message_arguments)),
+                               buffer_send_client, &buffer_index_send_client);
 
-    (*len) = buffer_index_send;
-    return buffer_send;
+    (*len) = buffer_index_send_client;
+    return buffer_send_client;
 
 }
 
 void Buffer::write_lobby_message(const ClientMessageToGUI::LobbyMessage &lobby_message) {
 
-    write_string_to_buffer(lobby_message.server_name);
-    write_number_to_buffer(lobby_message.players_count);
-    write_number_to_buffer(lobby_message.size_x);
-    write_number_to_buffer(lobby_message.size_y);
-    write_number_to_buffer(lobby_message.game_length);
-    write_number_to_buffer(lobby_message.explosion_radius);
-    write_number_to_buffer(lobby_message.bomb_timer);
-    write_number_to_buffer(uint32_t(lobby_message.players.size()));
+    write_string_to_buffer(lobby_message.server_name, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(lobby_message.players_count, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(lobby_message.size_x, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(lobby_message.size_y, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(lobby_message.game_length, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(lobby_message.explosion_radius, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(lobby_message.bomb_timer, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(uint32_t(lobby_message.players.size()), buffer_send_client, &buffer_index_send_client);
     for (const auto& [key, value] : lobby_message.players) {
-        write_number_to_buffer(key);
-        write_string_to_buffer(value.name);
-        write_string_to_buffer(value.address);
+        write_number_to_buffer(key, buffer_send_client, &buffer_index_send_client);
+        write_string_to_buffer(value.name, buffer_send_client, &buffer_index_send_client);
+        write_string_to_buffer(value.address, buffer_send_client, &buffer_index_send_client);
     }
 
 }
 
 void Buffer::write_game_message(const ClientMessageToGUI::GameMessage &game_message) {
 
-    write_string_to_buffer(game_message.server_name);
-    write_number_to_buffer(game_message.size_x);
-    write_number_to_buffer(game_message.size_y);
-    write_number_to_buffer(game_message.game_length);
-    write_number_to_buffer(game_message.turn);
-    write_number_to_buffer(uint32_t(game_message.players.size()));
+    write_string_to_buffer(game_message.server_name, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(game_message.size_x, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(game_message.size_y, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(game_message.game_length, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(game_message.turn, buffer_send_client, &buffer_index_send_client);
+    write_number_to_buffer(uint32_t(game_message.players.size()), buffer_send_client, &buffer_index_send_client);
     for (const auto& [key, value] : game_message.players) {
-        write_number_to_buffer(key);
-        write_string_to_buffer(value.name);
-        write_string_to_buffer(value.address);
+        write_number_to_buffer(key, buffer_send_client, &buffer_index_send_client);
+        write_string_to_buffer(value.name, buffer_send_client, &buffer_index_send_client);
+        write_string_to_buffer(value.address, buffer_send_client, &buffer_index_send_client);
     }
-    write_number_to_buffer(uint32_t(game_message.player_positions.size()));
+    write_number_to_buffer(uint32_t(game_message.player_positions.size()), buffer_send_client, &buffer_index_send_client);
     for (const auto& [key, value] : game_message.player_positions) {
-        write_number_to_buffer(key);
-        write_number_to_buffer(value.x);
-        write_number_to_buffer(value.y);
+        write_number_to_buffer(key, buffer_send_client, &buffer_index_send_client);
+        write_number_to_buffer(value.x, buffer_send_client, &buffer_index_send_client);
+        write_number_to_buffer(value.y, buffer_send_client, &buffer_index_send_client);
     }
-    write_number_to_buffer(uint32_t(game_message.blocks.size()));
+    write_number_to_buffer(uint32_t(game_message.blocks.size()), buffer_send_client, &buffer_index_send_client);
     for (Position p : game_message.blocks) {
-        write_number_to_buffer(p.x);
-        write_number_to_buffer(p.y);
+        write_number_to_buffer(p.x, buffer_send_client, &buffer_index_send_client);
+        write_number_to_buffer(p.y, buffer_send_client, &buffer_index_send_client);
     }
-    write_number_to_buffer(uint32_t(game_message.bombs.size()));
+    write_number_to_buffer(uint32_t(game_message.bombs.size()), buffer_send_client, &buffer_index_send_client);
     for (Bomb b : game_message.bombs) {
-        write_number_to_buffer(b.position.x);
-        write_number_to_buffer(b.position.y);
-        write_number_to_buffer(b.timer);
+        write_number_to_buffer(b.position.x, buffer_send_client, &buffer_index_send_client);
+        write_number_to_buffer(b.position.y, buffer_send_client, &buffer_index_send_client);
+        write_number_to_buffer(b.timer, buffer_send_client, &buffer_index_send_client);
     }
-    write_number_to_buffer(uint32_t(game_message.explosions.size()));
+    write_number_to_buffer(uint32_t(game_message.explosions.size()), buffer_send_client, &buffer_index_send_client);
     for (Position p : game_message.explosions) {
-        write_number_to_buffer(p.x);
-        write_number_to_buffer(p.y);
+        write_number_to_buffer(p.x, buffer_send_client, &buffer_index_send_client);
+        write_number_to_buffer(p.y, buffer_send_client, &buffer_index_send_client);
     }
-    write_number_to_buffer(uint32_t(game_message.scores.size()));
+    write_number_to_buffer(uint32_t(game_message.scores.size()), buffer_send_client, &buffer_index_send_client);
     for (const auto& [key, value] : game_message.scores) {
-        write_number_to_buffer(key);
-        write_number_to_buffer(value);
+        write_number_to_buffer(key, buffer_send_client, &buffer_index_send_client);
+        write_number_to_buffer(value, buffer_send_client, &buffer_index_send_client);
     }
 
 }
 
 vector<uint8_t> &Buffer::write_client_message_to_gui(const ClientMessageToGUI &client_message, size_t *len) {
 
-    clean_send_buffer();
+    clean_send_buffer_client();
     ClientMessageToGUI::DrawMessage type = client_message.message_type;
 
-    write_number_to_buffer(uint8_t(type));
+    write_number_to_buffer(uint8_t(type), buffer_send_client, &buffer_index_send_client);
     if (type == ClientMessageToGUI::Lobby)
         write_lobby_message(get<ClientMessageToGUI::LobbyMessage>(client_message.message_arguments));
     else
         write_game_message(get<ClientMessageToGUI::GameMessage>(client_message.message_arguments));
 
-    (*len) = buffer_index_send;
-    return buffer_send;
+    (*len) = buffer_index_send_client;
+    return buffer_send_client;
+
+}
+
+std::vector<uint8_t> &Buffer::write_server_message_to_client(const ServerMessageToClient &server_message, size_t *len) {
+
+    buffer_index_send_server = 0;
+    fill(buffer_send_server.begin(), buffer_send_server.end(), 0);
+
+    ServerMessageToClient::MessageType type = server_message.message_type;
+    write_number_to_buffer(uint8_t(type), buffer_send_server, &buffer_index_send_server);
+
+    // Serialize message depending on a message type.
+    switch (type) {
+        case ServerMessageToClient::Hello: {
+
+            break;
+        } case ServerMessageToClient::AcceptedPlayer: {
+
+            break;
+        } case ServerMessageToClient::GameStarted: {
+
+            break;
+        } case ServerMessageToClient::Turn: {
+                break;
+        } case ServerMessageToClient::GameEnded: {
+
+            break;
+        } default: {
+            break;
+        }
+    }
+
+    (*len) = buffer_index_send_server;
+    return buffer_send_server;
 
 }
 
@@ -182,18 +220,18 @@ void Buffer::read_number_from_buffer(T &number, vector<uint8_t> &buffer, size_t 
 
 }
 
-string Buffer::read_string_from_buffer(vector<uint8_t> &buffer, size_t len) {
+string Buffer::read_string_from_buffer(vector<uint8_t> &buffer, size_t len, size_t *buffer_index) {
 
     // If there is not enough message to be read we throw an exception.
-    if (len < buffer_index_read_tcp + UIN8_T_BYTES)
+    if (len < (*buffer_index) + UIN8_T_BYTES)
         throw "Message not long enough";
-    uint8_t string_length = convert_from_network(*(uint8_t *)(&buffer[buffer_index_read_tcp]));
-    buffer_index_read_tcp++;
-    if (len < buffer_index_read_tcp + string_length)
+    uint8_t string_length = convert_from_network(*(uint8_t *)(&buffer[(*buffer_index)]));
+    (*buffer_index)++;
+    if (len < (*buffer_index) + string_length)
         throw "Message not long enough";
-    size_t old_index = buffer_index_read_tcp;
-    buffer_index_read_tcp += string_length;
-    return string((begin(buffer) + old_index), (begin(buffer) + buffer_index_read_tcp));
+    size_t old_index = (*buffer_index);
+    (*buffer_index) += string_length;
+    return string((begin(buffer) + old_index), (begin(buffer) + (*buffer_index)));
 
 }
 
@@ -220,7 +258,7 @@ bool Buffer::read_gui_message_to_client(GUIMessageToClient &gui_message, vector<
 void Buffer::read_hello_message(ServerMessageToClient::HelloMessage &server_message, vector<uint8_t> &buffer, size_t len) {
 
     try {
-        server_message.server_name = read_string_from_buffer(buffer, len);
+        server_message.server_name = read_string_from_buffer(buffer, len, &buffer_index_read_tcp);
     } catch (const char *msg) {
         throw msg;
     }
@@ -241,8 +279,8 @@ void Buffer::read_accepted_player_message(ServerMessageToClient::AcceptedPlayerM
         throw "Message not long enough";
     read_number_from_buffer(server_message.id, buffer, &buffer_index_read_tcp);
     try {
-        server_message.player.name = read_string_from_buffer(buffer, len);
-        server_message.player.address = read_string_from_buffer(buffer, len);
+        server_message.player.name = read_string_from_buffer(buffer, len, &buffer_index_read_tcp);
+        server_message.player.address = read_string_from_buffer(buffer, len, &buffer_index_read_tcp);
     } catch (const char *msg) {
         throw msg;
     }
@@ -262,8 +300,8 @@ void Buffer::read_game_started_message(ServerMessageToClient::GameStartedMessage
             throw "Message not long enough";
         read_number_from_buffer(key, buffer, &buffer_index_read_tcp);
         try {
-            value.name = read_string_from_buffer(buffer, len);
-            value.address = read_string_from_buffer(buffer, len);
+            value.name = read_string_from_buffer(buffer, len, &buffer_index_read_tcp);
+            value.address = read_string_from_buffer(buffer, len, &buffer_index_read_tcp);
             server_message.players.insert(pair<PlayerId, Player>(key, value));
         } catch (const char *msg) {
             throw msg;
@@ -429,6 +467,47 @@ size_t Buffer::read_server_message_to_client(ServerMessageToClient &server_messa
             }
         }
         return buffer_index_read_tcp;
+    } catch (const char *msg) {
+        throw msg;
+    }
+
+}
+
+// Throws error if there is not enough message from client or if the message
+// is not a correct one. If there is no error, the message is saved to
+// ClientMessageToServer structure.
+size_t Buffer::read_client_message_to_server(ClientMessageToServer &client_message,
+                                             std::vector<uint8_t> &buffer, size_t len) {
+
+    try {
+        // Index of currently read message.
+        size_t current_index = 0;
+        uint8_t message_enum;
+        read_number_from_buffer(message_enum, buffer, &current_index);
+        if (message_enum > CLIENT_ENUMS)
+            throw "Wrong message";
+
+        client_message.message_type = static_cast<ClientMessageToServer::MessageType>(message_enum);
+
+        // Read additional arguments depending on message type.
+        switch(client_message.message_type) {
+            case ClientMessageToServer::Join: {
+                client_message.message_arguments = read_string_from_buffer(buffer, len, &current_index);
+                break;
+            } case ClientMessageToServer::Move: {
+                uint8_t direction;
+                if ((current_index + UIN8_T_BYTES) > len)
+                    throw "Message not long enough";
+                read_number_from_buffer(direction, buffer, &current_index);
+                if (direction > DIRECTION_ENUMS)
+                    throw "Wrong message";
+                client_message.message_arguments = static_cast<Direction>(direction);
+                break;
+            } default: {
+                break;
+            }
+        }
+        return current_index;
     } catch (const char *msg) {
         throw msg;
     }
