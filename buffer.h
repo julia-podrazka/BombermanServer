@@ -32,6 +32,20 @@ private:
 
     void write_game_message(const ClientMessageToGUI::GameMessage &game_message);
 
+    void write_hello_message(const ServerMessageToClient::HelloMessage &server_message);
+
+    void write_accepted_player_message(const ServerMessageToClient::AcceptedPlayerMessage &server_message);
+
+    void write_game_started_message(const ServerMessageToClient::GameStartedMessage &server_message);
+
+    void write_position_message(const Position &position);
+
+    void write_event_message(const ServerMessageToClient::Event &event_message);
+
+    void write_turn_message(const ServerMessageToClient::TurnMessage &server_message);
+
+    void write_game_ended_message(const ServerMessageToClient::GameEndedMessage &server_message);
+
     void read_hello_message(ServerMessageToClient::HelloMessage &server_message, std::vector<uint8_t> &buffer, size_t len);
 
     void read_accepted_player_message(ServerMessageToClient::AcceptedPlayerMessage &server_message, std::vector<uint8_t> &buffer, size_t len);

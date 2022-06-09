@@ -88,6 +88,45 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Hello, World!" << std::endl;
 
+    Buffer buffer;
+
+    ServerMessageToClient message;
+    message.message_type = ServerMessageToClient::Turn;
+//    ServerMessageToClient::HelloMessage hello;
+//    hello.server_name = "aassdd";
+//    hello.bomb_timer = 3;
+//    hello.explosion_radius = 4;
+//    hello.game_length = 5;
+//    hello.size_y = 6;
+//    hello.size_x = 7;
+//    hello.players_count = 8;
+//    message.message_arguments = hello;
+    ServerMessageToClient::TurnMessage turn;
+    turn.turn = 1;
+    ServerMessageToClient::Event event1;
+    event1.message_type = ServerMessageToClient::Event::BombExploded;
+    vector<uint8_t> v1 = {1, 2, 3, 4};
+    Position p1;
+    p1.x = 1;
+    p1.y = 2;
+    vector<Position> v2 = {p1};
+    ServerMessageToClient::Event::BombExplodedMessage bomb;
+    bomb.id = 9;
+    bomb.robots_destroyed = v1;
+    bomb.blocks_destroyed = v2;
+    event1.message_arguments = bomb;
+    vector<ServerMessageToClient::Event> v3 = {event1};
+    turn.events = v3;
+    message.message_arguments = turn;
+
+    size_t len;
+    auto vector = buffer.write_server_message_to_client(message, &len);
+
+    for (size_t i = 0; i < len; i++)
+        printf("%d", vector[i]);
+
+    cout << "\nEnd of buffer" << '\n';
+
     // Parse program options.
     Server server;
     server.parse_program_options(argc, argv);
