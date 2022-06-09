@@ -152,14 +152,20 @@ int main(int argc, char* argv[]) {
     server.parse_program_options(argc, argv);
 
     // Create ServerGame that will hold the state of the game.
-    ServerGame game(server.get_game_options());
+    ServerGame game(server.get_game_options(), buffer);
 
     // Accept players and run io_context.
-    boost::asio::io_context io_context;
-    tcp::endpoint endpoint(tcp::v6(), server.get_port());
-    tcp::acceptor acceptor(io_context, endpoint);
-    server.accept_players(&acceptor, &game);
-    io_context.run();
+    try {
+        boost::asio::io_context io_context;
+        tcp::endpoint endpoint(tcp::v6(), server.get_port());
+        tcp::acceptor acceptor(io_context, endpoint);
+        server.accept_players(&acceptor, &game);
+        io_context.run();
+    } catch (const exception &e) {
+        if (debug)
+            cerr << e.what() << '\n';
+        return 1;
+    }
 
     return 0;
 }
