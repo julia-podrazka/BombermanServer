@@ -86,6 +86,8 @@ void Server::accept_players(tcp::acceptor *acceptor, ServerGame *server_game) {
 
 int main(int argc, char* argv[]) {
 
+    // TODO Usunąć poniżej
+
     std::cout << "Hello, World!" << std::endl;
 
     Buffer buffer;
@@ -119,8 +121,26 @@ int main(int argc, char* argv[]) {
     turn.events = v3;
     message.message_arguments = turn;
 
-    size_t len;
-    auto vector = buffer.write_server_message_to_client(message, &len);
+    ClientMessageToServer client;
+    vector<uint8_t> vector_client = {0, 8, 197, 187, 195, 179, 197, 130, 196, 135, 33};
+    try {
+        buffer.read_client_message_to_server(client, vector_client, vector_client.size());
+    } catch (const char *msg) {
+        if (strcmp(msg, "Message not long enough") == 0)
+            cout << "Message not long\n";
+        else
+            cout << "Message wrong\n";
+        exit(1);
+    }
+    cout << "Reading message from client to server\n";
+    cout << "Message type: " << client.message_type << '\n';
+    cout << "Name: " << get<string>(client.message_arguments) << '\n';
+
+    size_t len = 0;
+    vector<uint8_t> vector;
+    vector.resize(MAX_BUFFER_SIZE);
+    fill(vector.begin(), vector.end(), 0);
+    buffer.write_server_message_to_client(message, vector, &len);
 
     for (size_t i = 0; i < len; i++)
         printf("%d", vector[i]);

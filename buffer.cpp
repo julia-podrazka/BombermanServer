@@ -23,7 +23,6 @@ void Buffer::clean_send_buffer_client() {
 Buffer::Buffer() {
 
     buffer_send_client.resize(MAX_BUFFER_SIZE);
-    buffer_send_server.resize(MAX_BUFFER_SIZE);
     clean_send_buffer_client();
     buffer_index_read_tcp = 0;
     buffer_index_read_udp = 0;
@@ -178,73 +177,78 @@ vector<uint8_t> &Buffer::write_client_message_to_gui(const ClientMessageToGUI &c
 
 }
 
-void Buffer::write_hello_message(const ServerMessageToClient::HelloMessage &server_message) {
+void Buffer::write_hello_message(const ServerMessageToClient::HelloMessage &server_message, 
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
 
-    write_string_to_buffer(server_message.server_name, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(server_message.players_count, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(server_message.size_x, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(server_message.size_y, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(server_message.game_length, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(server_message.explosion_radius, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(server_message.bomb_timer, buffer_send_server, &buffer_index_send_server);
-
-}
-
-void Buffer::write_accepted_player_message(const ServerMessageToClient::AcceptedPlayerMessage &server_message) {
-
-    write_number_to_buffer(server_message.id, buffer_send_server, &buffer_index_send_server);
-    write_string_to_buffer(server_message.player.name, buffer_send_server, &buffer_index_send_server);
-    write_string_to_buffer(server_message.player.address, buffer_send_server, &buffer_index_send_server);
+    write_string_to_buffer(server_message.server_name, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(server_message.players_count, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(server_message.size_x, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(server_message.size_y, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(server_message.game_length, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(server_message.explosion_radius, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(server_message.bomb_timer, buffer_send_server, buffer_index_send_server);
 
 }
 
-void Buffer::write_game_started_message(const ServerMessageToClient::GameStartedMessage &server_message) {
+void Buffer::write_accepted_player_message(const ServerMessageToClient::AcceptedPlayerMessage &server_message, 
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
 
-    write_number_to_buffer(uint32_t(server_message.players.size()), buffer_send_server, &buffer_index_send_server);
+    write_number_to_buffer(server_message.id, buffer_send_server, buffer_index_send_server);
+    write_string_to_buffer(server_message.player.name, buffer_send_server, buffer_index_send_server);
+    write_string_to_buffer(server_message.player.address, buffer_send_server, buffer_index_send_server);
+
+}
+
+void Buffer::write_game_started_message(const ServerMessageToClient::GameStartedMessage &server_message, 
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
+
+    write_number_to_buffer(uint32_t(server_message.players.size()), buffer_send_server, buffer_index_send_server);
     for (const auto& [key, value] : server_message.players) {
-        write_number_to_buffer(key, buffer_send_server, &buffer_index_send_server);
-        write_string_to_buffer(value.name, buffer_send_server, &buffer_index_send_server);
-        write_string_to_buffer(value.address, buffer_send_server, &buffer_index_send_server);
+        write_number_to_buffer(key, buffer_send_server, buffer_index_send_server);
+        write_string_to_buffer(value.name, buffer_send_server, buffer_index_send_server);
+        write_string_to_buffer(value.address, buffer_send_server, buffer_index_send_server);
     }
 
 }
 
-void Buffer::write_position_message(const Position &position) {
+void Buffer::write_position_message(const Position &position, 
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
 
-    write_number_to_buffer(position.x, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(position.y, buffer_send_server, &buffer_index_send_server);
+    write_number_to_buffer(position.x, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(position.y, buffer_send_server, buffer_index_send_server);
 
 }
 
-void Buffer::write_event_message(const ServerMessageToClient::Event &event_message) {
+void Buffer::write_event_message(const ServerMessageToClient::Event &event_message, 
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
 
-    write_number_to_buffer(uint8_t(event_message.message_type), buffer_send_server, &buffer_index_send_server);
+    write_number_to_buffer(uint8_t(event_message.message_type), buffer_send_server, buffer_index_send_server);
 
     // Writing event message depending on a type of a message.
     switch (event_message.message_type) {
         case ServerMessageToClient::Event::BombPlaced: {
             auto message = get<ServerMessageToClient::Event::BombPlacedMessage>(event_message.message_arguments);
-            write_number_to_buffer(message.id, buffer_send_server, &buffer_index_send_server);
-            write_position_message(message.position);
+            write_number_to_buffer(message.id, buffer_send_server, buffer_index_send_server);
+            write_position_message(message.position, buffer_send_server, buffer_index_send_server);
             break;
         } case ServerMessageToClient::Event::BombExploded: {
             auto message = get<ServerMessageToClient::Event::BombExplodedMessage>(event_message.message_arguments);
-            write_number_to_buffer(message.id, buffer_send_server, &buffer_index_send_server);
-            write_number_to_buffer(uint32_t(message.robots_destroyed.size()), buffer_send_server, &buffer_index_send_server);
+            write_number_to_buffer(message.id, buffer_send_server, buffer_index_send_server);
+            write_number_to_buffer(uint32_t(message.robots_destroyed.size()), buffer_send_server, buffer_index_send_server);
             for (const PlayerId &p : message.robots_destroyed)
-                write_number_to_buffer(p, buffer_send_server, &buffer_index_send_server);
-            write_number_to_buffer(uint32_t(message.blocks_destroyed.size()), buffer_send_server, &buffer_index_send_server);
+                write_number_to_buffer(p, buffer_send_server, buffer_index_send_server);
+            write_number_to_buffer(uint32_t(message.blocks_destroyed.size()), buffer_send_server, buffer_index_send_server);
             for (const Position &p : message.blocks_destroyed)
-                write_position_message(p);
+                write_position_message(p, buffer_send_server, buffer_index_send_server);
             break;
         } case ServerMessageToClient::Event::PlayerMoved: {
             auto message = get<ServerMessageToClient::Event::PlayerMovedMessage>(event_message.message_arguments);
-            write_number_to_buffer(message.id, buffer_send_server, &buffer_index_send_server);
-            write_position_message(message.position);
+            write_number_to_buffer(message.id, buffer_send_server, buffer_index_send_server);
+            write_position_message(message.position, buffer_send_server, buffer_index_send_server);
             break;
         } case ServerMessageToClient::Event::BlockPlaced: {
             auto message = get<ServerMessageToClient::Event::BlockPlacedMessage>(event_message.message_arguments);
-            write_position_message(message.position);
+            write_position_message(message.position, buffer_send_server, buffer_index_send_server);
             break;
         } default: {
             break;
@@ -253,58 +257,61 @@ void Buffer::write_event_message(const ServerMessageToClient::Event &event_messa
 
 }
 
-void Buffer::write_turn_message(const ServerMessageToClient::TurnMessage &server_message) {
+void Buffer::write_turn_message(const ServerMessageToClient::TurnMessage &server_message, 
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
 
-    write_number_to_buffer(server_message.turn, buffer_send_server, &buffer_index_send_server);
-    write_number_to_buffer(uint32_t(server_message.events.size()), buffer_send_server, &buffer_index_send_server);
+    write_number_to_buffer(server_message.turn, buffer_send_server, buffer_index_send_server);
+    write_number_to_buffer(uint32_t(server_message.events.size()), buffer_send_server, buffer_index_send_server);
     for (const ServerMessageToClient::Event &e : server_message.events)
-        write_event_message(e);
+        write_event_message(e, buffer_send_server, buffer_index_send_server);
 
 }
 
-void Buffer::write_game_ended_message(const ServerMessageToClient::GameEndedMessage &server_message) {
+void Buffer::write_game_ended_message(const ServerMessageToClient::GameEndedMessage &server_message, 
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
 
-    write_number_to_buffer(uint32_t(server_message.scores.size()), buffer_send_server, &buffer_index_send_server);
+    write_number_to_buffer(uint32_t(server_message.scores.size()), buffer_send_server, buffer_index_send_server);
     for (const auto& [key, value] : server_message.scores) {
-        write_number_to_buffer(key, buffer_send_server, &buffer_index_send_server);
-        write_number_to_buffer(value, buffer_send_server, &buffer_index_send_server);
+        write_number_to_buffer(key, buffer_send_server, buffer_index_send_server);
+        write_number_to_buffer(value, buffer_send_server, buffer_index_send_server);
     }
 
 }
 
-std::vector<uint8_t> &Buffer::write_server_message_to_client(const ServerMessageToClient &server_message, size_t *len) {
-
-    // Clear buffer to send.
-    buffer_index_send_server = 0;
-    fill(buffer_send_server.begin(), buffer_send_server.end(), 0);
+void Buffer::write_server_message_to_client(const ServerMessageToClient &server_message,
+        vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_server) {
+    
+    // We assume that the buffer and buffer index are cleared.
 
     ServerMessageToClient::MessageType type = server_message.message_type;
-    write_number_to_buffer(uint8_t(type), buffer_send_server, &buffer_index_send_server);
+    write_number_to_buffer(uint8_t(type), buffer_send_server, buffer_index_send_server);
 
     // Serialize message depending on a message type.
     switch (type) {
         case ServerMessageToClient::Hello: {
-            write_hello_message(get<ServerMessageToClient::HelloMessage>(server_message.message_arguments));
+            write_hello_message(get<ServerMessageToClient::HelloMessage>(server_message.message_arguments),
+                    buffer_send_server, buffer_index_send_server);
             break;
         } case ServerMessageToClient::AcceptedPlayer: {
-            write_accepted_player_message(get<ServerMessageToClient::AcceptedPlayerMessage>(server_message.message_arguments));
+            write_accepted_player_message(get<ServerMessageToClient::AcceptedPlayerMessage>(server_message.message_arguments),
+                    buffer_send_server, buffer_index_send_server);
             break;
         } case ServerMessageToClient::GameStarted: {
-            write_accepted_player_message(get<ServerMessageToClient::AcceptedPlayerMessage>(server_message.message_arguments));
+            write_game_started_message(get<ServerMessageToClient::GameStartedMessage>(server_message.message_arguments),
+                    buffer_send_server, buffer_index_send_server);
             break;
         } case ServerMessageToClient::Turn: {
-            write_turn_message(get<ServerMessageToClient::TurnMessage>(server_message.message_arguments));
+            write_turn_message(get<ServerMessageToClient::TurnMessage>(server_message.message_arguments),
+                    buffer_send_server, buffer_index_send_server);
             break;
         } case ServerMessageToClient::GameEnded: {
-            write_game_ended_message(get<ServerMessageToClient::GameEndedMessage>(server_message.message_arguments));
+            write_game_ended_message(get<ServerMessageToClient::GameEndedMessage>(server_message.message_arguments),
+                    buffer_send_server, buffer_index_send_server);
             break;
         } default: {
             break;
         }
     }
-
-    (*len) = buffer_index_send_server;
-    return buffer_send_server;
 
 }
 

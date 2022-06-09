@@ -21,8 +21,8 @@ private:
 
     std::vector<uint8_t> buffer_send_client;
     size_t buffer_index_send_client; // place in a buffer_send_client where next information should be written
-    std::vector<uint8_t> buffer_send_server;
-    size_t buffer_index_send_server;
+//    std::vector<uint8_t> buffer_send_server;
+//    size_t buffer_index_send_server;
     size_t buffer_index_read_udp;
     size_t buffer_index_read_tcp;
 
@@ -32,23 +32,31 @@ private:
 
     void write_game_message(const ClientMessageToGUI::GameMessage &game_message);
 
-    void write_hello_message(const ServerMessageToClient::HelloMessage &server_message);
+    void write_hello_message(const ServerMessageToClient::HelloMessage &server_message,
+            std::vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_serve);
 
-    void write_accepted_player_message(const ServerMessageToClient::AcceptedPlayerMessage &server_message);
+    void write_accepted_player_message(const ServerMessageToClient::AcceptedPlayerMessage &server_message,
+            std::vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_serve);
 
-    void write_game_started_message(const ServerMessageToClient::GameStartedMessage &server_message);
+    void write_game_started_message(const ServerMessageToClient::GameStartedMessage &server_message,
+            std::vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_serve);
 
-    void write_position_message(const Position &position);
+    void write_position_message(const Position &position,
+            std::vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_serve);
 
-    void write_event_message(const ServerMessageToClient::Event &event_message);
+    void write_event_message(const ServerMessageToClient::Event &event_message,
+            std::vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_serve);
 
-    void write_turn_message(const ServerMessageToClient::TurnMessage &server_message);
+    void write_turn_message(const ServerMessageToClient::TurnMessage &server_message,
+            std::vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_serve);
 
-    void write_game_ended_message(const ServerMessageToClient::GameEndedMessage &server_message);
+    void write_game_ended_message(const ServerMessageToClient::GameEndedMessage &server_message,
+            std::vector<uint8_t> &buffer_send_server, size_t *buffer_index_send_serve);
 
     void read_hello_message(ServerMessageToClient::HelloMessage &server_message, std::vector<uint8_t> &buffer, size_t len);
 
-    void read_accepted_player_message(ServerMessageToClient::AcceptedPlayerMessage &server_message, std::vector<uint8_t> &buffer, size_t len);
+    void read_accepted_player_message(ServerMessageToClient::AcceptedPlayerMessage &server_message,
+            std::vector<uint8_t> &buffer, size_t len);
 
     void read_game_started_message(ServerMessageToClient::GameStartedMessage &server_message, std::vector<uint8_t> &buffer, size_t len);
 
@@ -80,7 +88,8 @@ public:
 
     std::vector<uint8_t> &write_client_message_to_gui(const ClientMessageToGUI &client_message, size_t *len);
 
-    std::vector<uint8_t> &write_server_message_to_client(const ServerMessageToClient &server_message, size_t *len);
+    void write_server_message_to_client(const ServerMessageToClient &server_message, std::vector<uint8_t> &buffer_send_server,
+            size_t *buffer_index_send_serve);
 
     template<typename T>
     void read_number_from_buffer(T &number, std::vector<uint8_t> &buffer, size_t *buffer_index);
