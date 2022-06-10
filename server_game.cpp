@@ -90,6 +90,7 @@ void ServerGame::start_game() {
 
 void ServerGame::play_game() {
 
+    timer.expires_from_now(boost::asio::chrono::milliseconds(game_options.turn_duration));
     timer.async_wait([this](const boost::system::error_code &error) {
         if (error) {
             // TODO what to do?
@@ -108,26 +109,23 @@ void ServerGame::explode_bomb(const BombId &key, Bomb &value) {
         if (value.position.y != game_options.size_y - 1) {
             for (CoordinateSize i = value.position.y + 1, k = 0;
                  (k < game_options.explosion_radius && i < game_options.size_y); i++, k++) {
-                if (blocks.count(pair<CoordinateSize, CoordinateSize>(value.position.x, i)) == 0)
-                    explosions.insert(pair<CoordinateSize, CoordinateSize>(value.position.x, i));
-                else
+                explosions.insert(pair<CoordinateSize, CoordinateSize>(value.position.x, i));
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(value.position.x, i)) != 0)
                     break;
             }
         }
         if (value.position.x != game_options.size_x - 1) {
             for (CoordinateSize i = value.position.x + 1, k = 0;
                  (k < game_options.explosion_radius && i < game_options.size_x); i++, k++) {
-                if (blocks.count(pair<CoordinateSize, CoordinateSize>(i, value.position.y)) == 0)
-                    explosions.insert(pair<CoordinateSize, CoordinateSize>(i, value.position.y));
-                else
+                explosions.insert(pair<CoordinateSize, CoordinateSize>(i, value.position.y));
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(i, value.position.y)) != 0)
                     break;
             }
         }
         if (value.position.y != 0) {
             for (CoordinateSize i = value.position.y - 1, k = 0; k < game_options.explosion_radius; i--, k++) {
-                if (blocks.count(pair<CoordinateSize, CoordinateSize>(value.position.x, i)) == 0)
-                    explosions.insert(pair<CoordinateSize, CoordinateSize>(value.position.x, i));
-                else
+                explosions.insert(pair<CoordinateSize, CoordinateSize>(value.position.x, i));
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(value.position.x, i)) != 0)
                     break;
                 if (i == 0)
                     break;
@@ -135,9 +133,8 @@ void ServerGame::explode_bomb(const BombId &key, Bomb &value) {
         }
         if (value.position.x != 0) {
             for (CoordinateSize i = value.position.x - 1, k = 0; k < game_options.explosion_radius; i--, k++) {
-                if (blocks.count(pair<CoordinateSize, CoordinateSize>(i, value.position.y)) == 0)
-                    explosions.insert(pair<CoordinateSize, CoordinateSize>(i, value.position.y));
-                else
+                explosions.insert(pair<CoordinateSize, CoordinateSize>(i, value.position.y));
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(i, value.position.y)) != 0)
                     break;
                 if (i == 0)
                     break;
@@ -162,13 +159,18 @@ void ServerGame::check_bombs() {
             ServerMessageToClient::Event::BombExplodedMessage bomb;
             bomb.id = key;
             for (auto &explosion : explosions) {
+                // TODO Usunąć
+                cout << "Explosion x: " << explosion.first << ", y: " << explosion.second << '\n';
+                for (auto &b : blocks)
+                    cout << "Blocks x: " << b.first << ", y: " << b.second << '\n';
                 // Block should be destroyed.
-                if (blocks.count(pair<CoordinateSize, CoordinateSize>(explosion.first,
-                                                                      explosion.second)) !=
-                    0) {
+                if (blocks.contains(pair<CoordinateSize, CoordinateSize>(explosion.first,
+                        explosion.second))) {
                     Position p;
                     p.x = explosion.first;
                     p.y = explosion.second;
+                    // TODO Usunąć
+                    cout << "Block destroyed x: " << p.x << ", y: " << p.y << '\n';
                     bomb.blocks_destroyed.push_back(p);
                     blocks.erase(pair<CoordinateSize, CoordinateSize>(explosion.first,
                                                                       explosion.second));
@@ -219,7 +221,8 @@ void ServerGame::make_players_move(ClientMessageToServer &client_message, Player
                 new_p.y = p.y;
                 can_move = true;
             }
-            if (can_move) {
+            // Player can't move outside of game board and on a block.
+            if (can_move && !blocks.contains(pair<CoordinateSize, CoordinateSize>(new_p.x, new_p.y))) {
                 player_positions[player_id] = new_p;
                 ServerMessageToClient::Event event;
                 event.message_type = ServerMessageToClient::Event::PlayerMoved;
@@ -305,8 +308,11 @@ void ServerGame::turn_handler()  {
     // Clearing attributes for next turn.
     clear_turn();
 
+//    timer.expires_from_now(boost::asio::chrono::milliseconds(game_options.turn_duration));
+
     // Checking if game should end.
     if (turn == game_options.game_length) {
+        cout << "Game ended\n";
         // Sending GameEndedMessage.
         ServerMessageToClient server_message_ended;
         server_message_ended.message_type = ServerMessageToClient::GameEnded;
@@ -347,6 +353,7 @@ void ServerGame::clear_game() {
     scores.clear();
     turn_messages.clear();
     accepted_players.clear();
+    client_to_player.clear();
 
 }
 
