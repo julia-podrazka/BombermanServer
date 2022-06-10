@@ -24,7 +24,21 @@ public:
 
     void parse_program_options(int argc, char *argv[]);
 
-    void accept_players(boost::asio::ip::tcp::acceptor *acceptor, ServerGame *server_game);
+};
+
+class Acceptor {
+
+private:
+
+    boost::asio::ip::tcp::acceptor acceptor;
+    ServerGame server_game;
+
+public:
+
+    Acceptor(boost::asio::io_context &io_context, const boost::asio::ip::tcp::endpoint &endpoint,
+             GameProgramOptions &options, Buffer &buffer);
+
+    void accept_players();
 
 };
 

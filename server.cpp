@@ -73,26 +73,18 @@ void Server::parse_program_options(int argc, char *argv[]) {
 
 }
 
-void Server::accept_players(tcp::acceptor *acceptor, ServerGame *server_game) {
+Acceptor::Acceptor(boost::asio::io_context &io_context, const tcp::endpoint &endpoint,
+        GameProgramOptions &options, Buffer &buffer)
+        : acceptor(io_context, endpoint), server_game(options, buffer, io_context) {}
 
-    // TODO Usunąć
-//    try {
-//        acceptor->async_accept([this, &acceptor, &server_game](boost::system::error_code ec, tcp::socket socket) {
-//            if (!ec) {
-//                socket.set_option(tcp::no_delay(true));
-//                server_game->accept_new_player(std::move(socket));
-//            }
-//            accept_players(acceptor, server_game);
-//        });
-//    } catch (const exception &e) {
-//        accept_players(acceptor, server_game);
-//    }
-    acceptor->async_accept([this, &acceptor, &server_game](boost::system::error_code ec, tcp::socket socket) {
+void Acceptor::accept_players() {
+
+    acceptor.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
         if (!ec) {
             socket.set_option(tcp::no_delay(true));
-            server_game->accept_new_player(std::move(socket));
+            server_game.accept_new_player(std::move(socket));
         }
-        accept_players(acceptor, server_game);
+        accept_players();
     });
 
 }
@@ -109,10 +101,8 @@ int main(int argc, char* argv[]) {
     try {
         boost::asio::io_context io_context;
         tcp::endpoint endpoint(tcp::v6(), server.get_port());
-        tcp::acceptor acceptor(io_context, endpoint);
-        // Create ServerGame that will hold the state of the game.
-        ServerGame game(server.get_game_options(), buffer, io_context);
-        server.accept_players(&acceptor, &game);
+        Acceptor acceptor(io_context, endpoint, server.get_game_options(), buffer);
+        acceptor.accept_players();
         io_context.run();
     } catch (const exception &e) {
         if (debug)

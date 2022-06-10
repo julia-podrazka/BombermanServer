@@ -28,11 +28,6 @@ void ServerCommunication::receive_handler(const boost::system::error_code &error
         try {
             ClientMessageToServer client_message;
             read_buffer_size += receive_length;
-            // TODO usunąć
-            cout << "Buffer received: ";
-            for (size_t i = 0; i < receive_length; i++)
-                printf("%d", read_buffer[i]);
-            cout << '\n';
             // The length that was parsed by Buffer class.
             size_t parse_length =
                     buffer.read_client_message_to_server(client_message, read_buffer, read_buffer_size);

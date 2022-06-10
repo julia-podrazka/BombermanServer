@@ -46,14 +46,15 @@ void ServerGame::start_game() {
     // and add it to the list of events.
     for (uint16_t i = 0; i < game_options.initial_blocks; i++) {
         Position p = randomize_position();
-        p.y = static_cast<CoordinateSize>(random() % game_options.size_y);
-        blocks.insert(pair<CoordinateSize, CoordinateSize>(p.x, p.y));
-        ServerMessageToClient::Event e;
-        e.message_type = ServerMessageToClient::Event::BlockPlaced;
-        ServerMessageToClient::Event::BlockPlacedMessage e_message;
-        e_message.position = p;
-        e.message_arguments = e_message;
-        events.push_back(e);
+        if (!blocks.contains(pair<CoordinateSize, CoordinateSize>(p.x, p.y))) {
+            blocks.insert(pair<CoordinateSize, CoordinateSize>(p.x, p.y));
+            ServerMessageToClient::Event e;
+            e.message_type = ServerMessageToClient::Event::BlockPlaced;
+            ServerMessageToClient::Event::BlockPlacedMessage e_message;
+            e_message.position = p;
+            e.message_arguments = e_message;
+            events.push_back(e);
+        }
     }
 
     // Prepare GameStartedMessage.
@@ -77,6 +78,8 @@ void ServerGame::start_game() {
         value->send_message(server_message);
     }
 
+    turn_messages.push_back(server_message);
+
     // Save GameStartedMessage for spectators.
     game_started = server_message_started;
 
@@ -93,7 +96,9 @@ void ServerGame::play_game() {
     timer.expires_from_now(boost::asio::chrono::milliseconds(game_options.turn_duration));
     timer.async_wait([this](const boost::system::error_code &error) {
         if (error) {
-            // TODO what to do?
+            if (debug)
+                cerr << "Error while waiting for turn to end\n";
+            exit(1);
         }
         turn_handler();
     });
