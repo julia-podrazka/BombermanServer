@@ -18,6 +18,7 @@ private:
     ServerGame *server_game;
     Buffer buffer;
     std::vector<uint8_t> read_buffer;
+    std::vector<uint8_t> write_buffer;
     size_t read_buffer_size;
     boost::asio::ip::tcp::socket socket;
     ClientId client_id;
@@ -41,6 +42,8 @@ public:
     }
 
     void receive_message();
+
+    void send_message(ServerMessageToClient &server_message);
 
 };
 

@@ -10,6 +10,7 @@ ServerCommunication::ServerCommunication(tcp::socket socket, ServerGame *server_
     socket.set_option(tcp::no_delay(true));
     read_buffer.resize(MAX_BUFFER_SIZE);
     read_buffer_size = 0;
+    write_buffer.resize(MAX_BUFFER_SIZE);
 
 }
 
@@ -43,6 +44,7 @@ void ServerCommunication::receive_handler(const boost::system::error_code &error
             else
                 read_buffer_size = 0;
             server_game->process_client_message(client_message, client_id);
+            receive_message();
         } catch (const char *msg) {
             // We have two types of errors: one that means that there is not enough
             // message to parse and we should wait to receive its ending and the
@@ -57,5 +59,21 @@ void ServerCommunication::receive_handler(const boost::system::error_code &error
     } else {
         // TODO co się powinno stać jak error
     }
+
+}
+
+void ServerCommunication::send_message(ServerMessageToClient &server_message) {
+
+    size_t message_len;
+    buffer.write_server_message_to_client(server_message, write_buffer, &message_len);
+    socket.async_send(boost::asio::buffer(write_buffer, message_len),
+            [this](boost::system::error_code error, size_t send_length) {
+        if (error) {
+            // TODO what to do?
+        }
+        if (send_length == 0) {
+            // TODO what to do?
+        }
+    });
 
 }
