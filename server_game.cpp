@@ -50,6 +50,13 @@ void ServerGame::start_game() {
         events.push_back(e);
     }
 
+    // Prepare GameStartedMessage.
+    ServerMessageToClient server_message_started;
+    server_message_started.message_type = ServerMessageToClient::GameStarted;
+    ServerMessageToClient::GameStartedMessage game_message;
+    game_message.players = players;
+    server_message_started.message_arguments = game_message;
+
     // Prepare TurnMessage.
     ServerMessageToClient server_message;
     server_message.message_type = ServerMessageToClient::Turn;
@@ -58,10 +65,14 @@ void ServerGame::start_game() {
     turn_message.events = events;
     server_message.message_arguments = turn_message;
 
-    // Send TurnMessage to all clients;
+    // Send GameStartedMessage and TurnMessage to all clients.
     for (auto& [key, value] : clients) {
+        value->send_message(server_message_started);
         value->send_message(server_message);
     }
+
+    // Save GameStartedMessage for spectators.
+    game_started = server_message_started;
 
     play_game();
     // TODO where to do it? - czy tutaj?
@@ -80,23 +91,118 @@ void ServerGame::play_game() {
 
 }
 
+void ServerGame::explode_bomb(const BombId &key, Bomb &value) {
+
+    explosions.insert(pair<CoordinateSize, CoordinateSize>(value.position.x, value.position.y));
+    // Adds explosions from above, below, on the right/left to the exploding bomb depending
+    // on explosion_radius and whether there is a block blocking the way.
+    if (blocks.count(pair<CoordinateSize, CoordinateSize>(value.position.x, value.position.y)) == 0) {
+        if (value.position.y != game_options.size_y - 1) {
+            for (CoordinateSize i = value.position.y + 1, k = 0;
+                 (k < game_options.explosion_radius && i < game_options.size_y); i++, k++) {
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(value.position.x, i)) == 0)
+                    explosions.insert(pair<CoordinateSize, CoordinateSize>(value.position.x, i));
+                else
+                    break;
+            }
+        }
+        if (value.position.x != game_options.size_x - 1) {
+            for (CoordinateSize i = value.position.x + 1, k = 0;
+                 (k < game_options.explosion_radius && i < game_options.size_x); i++, k++) {
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(i, value.position.y)) == 0)
+                    explosions.insert(pair<CoordinateSize, CoordinateSize>(i, value.position.y));
+                else
+                    break;
+            }
+        }
+        if (value.position.y != 0) {
+            for (CoordinateSize i = value.position.y - 1, k = 0; k < game_options.explosion_radius; i--, k++) {
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(value.position.x, i)) == 0)
+                    explosions.insert(pair<CoordinateSize, CoordinateSize>(value.position.x, i));
+                else
+                    break;
+                if (i == 0)
+                    break;
+            }
+        }
+        if (value.position.x != 0) {
+            for (CoordinateSize i = value.position.x - 1, k = 0; k < game_options.explosion_radius; i--, k++) {
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(i, value.position.y)) == 0)
+                    explosions.insert(pair<CoordinateSize, CoordinateSize>(i, value.position.y));
+                else
+                    break;
+                if (i == 0)
+                    break;
+            }
+        }
+    }
+    exploded_bombs.push_back(key);
+
+}
+
+void ServerGame::check_bombs() {
+
+    for (auto& [key, value] : bombs) {
+        value.timer -= 1;
+        if (value.timer == 0) {
+            explosions.clear();
+            // explode_bomb will mark in explosions which positions where
+            // destroyed by bomb.
+            explode_bomb(key, value);
+            ServerMessageToClient::Event event;
+            event.message_type = ServerMessageToClient::Event::BombExploded;
+            ServerMessageToClient::Event::BombExplodedMessage bomb;
+            bomb.id = key;
+            for (auto &explosion : explosions) {
+                // Block should be destroyed.
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(explosion.first, explosion.second)) != 0) {
+                    Position p;
+                    p.x = explosion.first;
+                    p.y = explosion.second;
+                    bomb.blocks_destroyed.push_back(p);
+                    blocks.erase(pair<CoordinateSize, CoordinateSize>(explosion.first, explosion.second));
+                }
+                // We check if each player was killed by a bomb.
+                for (auto& [p_key, p_value] : player_positions) {
+                    if (p_value.x == explosion.first && p_value.y == explosion.second) {
+                        killed_robots.insert(p_key);
+                        bomb.robots_destroyed.push_back(p_key);
+                    }
+                }
+            }
+            event.message_arguments = bomb;
+            events.push_back(event);
+        }
+    }
+
+    // Erase every bomb that exploded.
+    for (auto& exploded : exploded_bombs)
+        bombs.erase(exploded);
+
+}
+
 void ServerGame::turn_handler()  {
 
-    // wybuchamy bomby
-    // robimy ruchy graczy
+    check_bombs();
+    // robimy ruchy graczy - pamietac o zwiekszaniu scores przy zabiciu
     // wyprodukować TurnMessage
     // zapisać dla potomnych
     // send to all
     clear_turn();
-    // TODO check if game ended, if not play_game(), if yes clear_game()
-    play_game();
+    if (turn == game_options.game_length) {
+        // send game ended
+    } else {
+        play_game();
+    }
 
 }
 
 void ServerGame::clear_turn() {
 
     turn++;
+    exploded_bombs.clear();
     explosions.clear();
+    killed_robots.clear();
     events.clear();
     client_messages.clear();
 
@@ -123,7 +229,32 @@ void ServerGame::accept_new_player(tcp::socket socket) {
     // the next available number.
     size_t number_of_clients = clients.size();
     clients[number_of_clients] = make_unique<ServerCommunication>(std::move(socket), this, buffer, number_of_clients);
-    // TODO send hello + ...
+
+    // Preparing HelloMessage for new client.
+    ServerMessageToClient server_message;
+    server_message.message_type = ServerMessageToClient::Hello;
+    ServerMessageToClient::HelloMessage hello;
+    hello.server_name = game_options.server_name;
+    hello.players_count = game_options.players_count;
+    hello.size_x = game_options.size_x;
+    hello.size_y = game_options.size_y;
+    hello.game_length = game_options.game_length;
+    hello.explosion_radius = game_options.explosion_radius;
+    hello.bomb_timer = game_options.bomb_timer;
+    server_message.message_arguments = hello;
+    // Sending HelloMessage.
+    clients.find(number_of_clients)->second->send_message(server_message);
+
+    // Depending on is_lobby state we either send all AcceptedPlayerMessages or
+    // GameStartedMessage and TurnMessages.
+    if (is_lobby) {
+        for (auto &a : accepted_players)
+            clients.find(number_of_clients)->second->send_message(a);
+    } else {
+        clients.find(number_of_clients)->second->send_message(game_started);
+        for (auto &t : turn_messages)
+            clients.find(number_of_clients)->second->send_message(t);
+    }
 
 }
 

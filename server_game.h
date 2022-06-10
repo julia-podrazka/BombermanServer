@@ -24,10 +24,13 @@ private:
     std::map<PlayerId, Position> player_positions;
     std::set<std::pair<CoordinateSize, CoordinateSize>> blocks;
     std::map<BombId, Bomb> bombs;
+    std::vector<BombId> exploded_bombs;
     std::set<std::pair<CoordinateSize, CoordinateSize>> explosions;
+    std::set<PlayerId> killed_robots;
     std::map<PlayerId, Score> scores;
     std::vector<ServerMessageToClient> turn_messages;
     std::vector<ServerMessageToClient> accepted_players;
+    ServerMessageToClient game_started;
     std::map<ClientId, PlayerId> client_to_player;
     std::map<PlayerId, ClientMessageToServer> client_messages;
     std::vector<ServerMessageToClient::Event> events;
@@ -36,6 +39,10 @@ private:
     void start_game();
 
     void play_game();
+
+    void explode_bomb(const BombId &key, Bomb &value);
+
+    void check_bombs();
 
     void turn_handler();
 
