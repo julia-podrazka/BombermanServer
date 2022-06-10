@@ -31,9 +31,6 @@ void ServerCommunication::receive_handler(const boost::system::error_code &error
             // The length that was parsed by Buffer class.
             size_t parse_length =
                     buffer.read_client_message_to_server(client_message, read_buffer, read_buffer_size);
-            if (parse_length == 0) {
-                // TODO should we disconnect?
-            }
             // If a message was successfully parsed, the message is removed
             // from buffer.
             for (size_t i = 0; parse_length + i < MAX_BUFFER_SIZE; i++)
@@ -52,7 +49,7 @@ void ServerCommunication::receive_handler(const boost::system::error_code &error
             if (strcmp(msg, "Message not long enough") == 0)
                 receive_message();
             else {
-                // TODO disconnect client
+                server_game->disconnect_client(client_id);
             }
         }
     } else if (error == boost::asio::error::eof) {
@@ -67,18 +64,10 @@ void ServerCommunication::send_message(ServerMessageToClient &server_message) {
     size_t message_len = 0;
     fill(write_buffer.begin(), write_buffer.end(), 0);
     buffer.write_server_message_to_client(server_message, write_buffer, &message_len);
-    // TODO usunąć
-    cout << "Buffer to send: ";
-    for (size_t i = 0; i < message_len; i++)
-        printf("%d", write_buffer[i]);
-    cout << '\n';
     socket.async_send(boost::asio::buffer(write_buffer, message_len),
-            [this](boost::system::error_code error, size_t send_length) {
+            [this](boost::system::error_code error, size_t) {
         if (error) {
-            // TODO what to do?
-        }
-        if (send_length == 0) {
-            // TODO what to do?
+            server_game->disconnect_client(client_id);
         }
     });
 
