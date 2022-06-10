@@ -91,7 +91,8 @@ void ClientCommunication::gui_handler(const boost::system::error_code &error, si
 
 void ClientCommunication::server_receive_message() {
 
-    server_socket.async_receive(boost::asio::buffer(server_buffer) + server_buffer_size, [this](boost::system::error_code error, size_t receive_length) {
+    server_socket.async_receive(boost::asio::buffer(server_buffer) + server_buffer_size,
+            [this](boost::system::error_code error, size_t receive_length) {
         server_handler(error, receive_length);
     });
 
@@ -104,7 +105,8 @@ void ClientCommunication::server_handler(const boost::system::error_code &error,
         try {
             ServerMessageToClient server_message_to_client;
             server_buffer_size += receive_length;
-            size_t parse_length = buffer.read_server_message_to_client(server_message_to_client, server_buffer, server_buffer_size);
+            size_t parse_length =
+                    buffer.read_server_message_to_client(server_message_to_client, server_buffer, server_buffer_size);
             if (parse_length == 0) {
                 if (debug) cout << "Incorrect message from server.\n";
                 exit(1);

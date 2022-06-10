@@ -17,8 +17,12 @@ private:
 
     ServerGame *server_game;
     Buffer buffer;
+    std::vector<uint8_t> read_buffer;
+    size_t read_buffer_size;
     boost::asio::ip::tcp::socket socket;
     ClientId client_id;
+
+    void receive_handler(const boost::system::error_code &error, size_t receive_length);
 
 public:
 
@@ -36,7 +40,7 @@ public:
 
     }
 
-
+    void receive_message();
 
 };
 

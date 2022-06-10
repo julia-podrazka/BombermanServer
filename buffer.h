@@ -21,8 +21,6 @@ private:
 
     std::vector<uint8_t> buffer_send_client;
     size_t buffer_index_send_client; // place in a buffer_send_client where next information should be written
-//    std::vector<uint8_t> buffer_send_server;
-//    size_t buffer_index_send_server;
     size_t buffer_index_read_udp;
     size_t buffer_index_read_tcp;
 
