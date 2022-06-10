@@ -184,13 +184,35 @@ void ServerGame::check_bombs() {
 void ServerGame::turn_handler()  {
 
     check_bombs();
-    // robimy ruchy graczy - pamietac o zwiekszaniu scores przy zabiciu
-    // wyprodukować TurnMessage
-    // zapisać dla potomnych
-    // send to all
+    // TODO robimy ruchy graczy - pamietac o zwiekszaniu scores przy zabiciu
+    // We first create TurnMessage, then save it to turn_messages and lastly
+    // we send this message to all clients.
+    ServerMessageToClient server_message;
+    server_message.message_type = ServerMessageToClient::Turn;
+    ServerMessageToClient::TurnMessage turn_message;
+    turn_message.turn = turn;
+    turn_message.events = events;
+    server_message.message_arguments = turn_message;
+    turn_messages.push_back(server_message);
+    for (auto& [key, value] : clients) {
+        value->send_message(server_message);
+    }
+    // Clearing attributes for next turn.
     clear_turn();
+
+    // Checking if game should end.
     if (turn == game_options.game_length) {
-        // send game ended
+        // Sending GameEndedMessage.
+        ServerMessageToClient server_message_ended;
+        server_message_ended.message_type = ServerMessageToClient::GameEnded;
+        ServerMessageToClient::GameEndedMessage game_ended;
+        game_ended.scores = scores;
+        server_message_ended.message_arguments = game_ended;
+        for (auto& [key, value] : clients) {
+            value->send_message(server_message_ended);
+        }
+        // Clearing attributes for next game.
+        clear_game();
     } else {
         play_game();
     }
