@@ -1,6 +1,7 @@
 #ifndef SERVER_COMMUNICATION_H
 #define SERVER_COMMUNICATION_H
 
+#include <boost/lexical_cast.hpp>
 #include <boost/asio.hpp>
 #include "buffer.h"
 #include "messages.h"
@@ -27,17 +28,11 @@ private:
 
 public:
 
-    ServerCommunication(boost::asio::ip::tcp::socket socket, ServerGame *server_game, Buffer &buffer, size_t client_id);
+    ServerCommunication(boost::asio::ip::tcp::socket socket, ServerGame *server_game, Buffer &buffer, ClientId client_id);
 
     std::string get_client_address() {
 
-        return socket.remote_endpoint().address().to_string();
-
-    }
-
-    uint16_t get_client_port() {
-
-        return socket.remote_endpoint().port();
+        return boost::lexical_cast<std::string>(socket.remote_endpoint());
 
     }
 

@@ -13,7 +13,6 @@ class ServerGame {
 private:
 
     GameProgramOptions game_options;
-    boost::asio::io_context io;
     boost::asio::steady_timer timer;
     Buffer buffer;
     std::minstd_rand random;
@@ -36,6 +35,8 @@ private:
     std::vector<ServerMessageToClient::Event> events;
     bool is_lobby;
 
+    Position randomize_position();
+
     void start_game();
 
     void play_game();
@@ -43,6 +44,10 @@ private:
     void explode_bomb(const BombId &key, Bomb &value);
 
     void check_bombs();
+
+    void make_players_move(ClientMessageToServer &client_message, PlayerId player_id);
+
+    void check_players();
 
     void turn_handler();
 
@@ -58,7 +63,7 @@ private:
 
 public:
 
-    ServerGame(GameProgramOptions &game_options, Buffer &buffer);
+    ServerGame(GameProgramOptions &game_options, Buffer &buffer, boost::asio::io_context &io_context);
 
     void accept_new_player(boost::asio::ip::tcp::socket socket);
 

@@ -6,13 +6,22 @@ using boost::asio::ip::tcp;
 
 // In a constructor we initialize the timer that will wait for turn_duration
 // time before managing the turn.
-ServerGame::ServerGame(GameProgramOptions &game_options, Buffer &buffer)
-    : game_options(game_options), buffer(buffer),
-      timer(io, boost::asio::chrono::milliseconds(game_options.turn_duration)),
-      random(game_options.seed) {
+ServerGame::ServerGame(GameProgramOptions &game_options, Buffer &buffer, boost::asio::io_context &io_context)
+    : game_options(game_options),
+      timer(io_context, boost::asio::chrono::milliseconds(game_options.turn_duration)),
+      buffer(buffer), random(game_options.seed) {
 
     is_lobby = true;
     turn = 0;
+
+}
+
+Position ServerGame::randomize_position() {
+
+    Position p;
+    p.x = static_cast<CoordinateSize>(random() % game_options.size_x);
+    p.y = static_cast<CoordinateSize>(random() % game_options.size_y);
+    return p;
 
 }
 
@@ -22,9 +31,7 @@ void ServerGame::start_game() {
 
     // For every player randomize position and add it to the list of events.
     for (auto& [key, value] : players) {
-        Position p;
-        p.x = random() % game_options.size_x;
-        p.y = random() % game_options.size_y;
+        Position p = randomize_position();
         player_positions[key] = p;
         ServerMessageToClient::Event e;
         e.message_type = ServerMessageToClient::Event::PlayerMoved;
@@ -38,9 +45,8 @@ void ServerGame::start_game() {
     // Randomize position as many times as there are initial_blocks
     // and add it to the list of events.
     for (uint16_t i = 0; i < game_options.initial_blocks; i++) {
-        Position p;
-        p.x = random() % game_options.size_x;
-        p.y = random() % game_options.size_y;
+        Position p = randomize_position();
+        p.y = static_cast<CoordinateSize>(random() % game_options.size_y);
         blocks.insert(pair<CoordinateSize, CoordinateSize>(p.x, p.y));
         ServerMessageToClient::Event e;
         e.message_type = ServerMessageToClient::Event::BlockPlaced;
@@ -74,9 +80,11 @@ void ServerGame::start_game() {
     // Save GameStartedMessage for spectators.
     game_started = server_message_started;
 
+    // Clearing attributes for first turn.
+    clear_turn();
+
+    // Starting turns.
     play_game();
-    // TODO where to do it? - czy tutaj?
-    io.run();
 
 }
 
@@ -142,7 +150,7 @@ void ServerGame::explode_bomb(const BombId &key, Bomb &value) {
 
 void ServerGame::check_bombs() {
 
-    for (auto& [key, value] : bombs) {
+    for (auto&[key, value] : bombs) {
         value.timer -= 1;
         if (value.timer == 0) {
             explosions.clear();
@@ -155,15 +163,18 @@ void ServerGame::check_bombs() {
             bomb.id = key;
             for (auto &explosion : explosions) {
                 // Block should be destroyed.
-                if (blocks.count(pair<CoordinateSize, CoordinateSize>(explosion.first, explosion.second)) != 0) {
+                if (blocks.count(pair<CoordinateSize, CoordinateSize>(explosion.first,
+                                                                      explosion.second)) !=
+                    0) {
                     Position p;
                     p.x = explosion.first;
                     p.y = explosion.second;
                     bomb.blocks_destroyed.push_back(p);
-                    blocks.erase(pair<CoordinateSize, CoordinateSize>(explosion.first, explosion.second));
+                    blocks.erase(pair<CoordinateSize, CoordinateSize>(explosion.first,
+                                                                      explosion.second));
                 }
                 // We check if each player was killed by a bomb.
-                for (auto& [p_key, p_value] : player_positions) {
+                for (auto &[p_key, p_value] : player_positions) {
                     if (p_value.x == explosion.first && p_value.y == explosion.second) {
                         killed_robots.insert(p_key);
                         bomb.robots_destroyed.push_back(p_key);
@@ -176,15 +187,109 @@ void ServerGame::check_bombs() {
     }
 
     // Erase every bomb that exploded.
-    for (auto& exploded : exploded_bombs)
+    for (auto &exploded : exploded_bombs)
         bombs.erase(exploded);
+
+}
+
+void ServerGame::make_players_move(ClientMessageToServer &client_message, PlayerId player_id) {
+
+    Position p = player_positions.find(player_id)->second;
+    switch (client_message.message_type) {
+        case ClientMessageToServer::Move: {
+            Direction d = get<Direction>(client_message.message_arguments);
+            Position new_p;
+            bool can_move = false;
+            // Checking if a player can move, saving his new position and
+            // adding new event PlayerMoved.
+            if (d == Direction::Up && p.y != (game_options.size_y - 1)) {
+                new_p.x = p.x;
+                new_p.y = p.y + 1;
+                can_move = true;
+            } else if (d == Direction::Down && p.y != 0) {
+                new_p.x = p.x;
+                new_p.y = p.y - 1;
+                can_move = true;
+            } else if (d == Direction::Left && p.x != 0) {
+                new_p.x = p.x - 1;
+                new_p.y = p.y;
+                can_move = true;
+            } else if (d == Direction::Right && p.x != (game_options.size_x - 1)) {
+                new_p.x = p.x + 1;
+                new_p.y = p.y;
+                can_move = true;
+            }
+            if (can_move) {
+                player_positions[player_id] = new_p;
+                ServerMessageToClient::Event event;
+                event.message_type = ServerMessageToClient::Event::PlayerMoved;
+                ServerMessageToClient::Event::PlayerMovedMessage player;
+                player.id = player_id;
+                player.position = new_p;
+                event.message_arguments = player;
+                events.push_back(event);
+            }
+            break;
+        } case ClientMessageToServer::PlaceBlock: {
+            if (!blocks.contains(pair<CoordinateSize, CoordinateSize>(p.x, p.y))) {
+                blocks.insert(pair<CoordinateSize, CoordinateSize>(p.x, p.y));
+                ServerMessageToClient::Event event;
+                event.message_type = ServerMessageToClient::Event::BlockPlaced;
+                ServerMessageToClient::Event::BlockPlacedMessage block;
+                block.position = p;
+                event.message_arguments = block;
+                events.push_back(event);
+            }
+            break;
+        } case ClientMessageToServer::PlaceBomb: {
+            Bomb b;
+            b.timer = game_options.bomb_timer;
+            b.position = p;
+            bombs[static_cast<BombId>(bombs.size())] = b;
+            ServerMessageToClient::Event event;
+            event.message_type = ServerMessageToClient::Event::BombPlaced;
+            ServerMessageToClient::Event::BombPlacedMessage bomb;
+            bomb.id = static_cast<BombId>(bombs.size()) - 1;
+            bomb.position = p;
+            event.message_arguments = bomb;
+            events.push_back(event);
+            break;
+        } default: {
+            break;
+        }
+    }
+
+}
+
+void ServerGame::check_players() {
+
+    for (auto &[key, value] : players) {
+        if (killed_robots.contains(key)) {
+            // If player was killed we randomize new position for him
+            // and add PlayerMovedMessage to events.
+            Position p = randomize_position();
+            ServerMessageToClient::Event event;
+            event.message_type = ServerMessageToClient::Event::PlayerMoved;
+            ServerMessageToClient::Event::PlayerMovedMessage moved;
+            moved.id = key;
+            moved.position = p;
+            event.message_arguments = moved;
+            events.push_back(event);
+            // We also have to update scores for this player.
+            scores.find(key)->second += 1;
+        } else {
+            // If player was not killed and made some move, we parse it.
+            if (client_messages.contains(key))
+                make_players_move(client_messages.find(key)->second, key);
+        }
+    }
 
 }
 
 void ServerGame::turn_handler()  {
 
     check_bombs();
-    // TODO robimy ruchy graczy - pamietac o zwiekszaniu scores przy zabiciu
+    check_players();
     // We first create TurnMessage, then save it to turn_messages and lastly
     // we send this message to all clients.
     ServerMessageToClient server_message;
@@ -194,7 +299,7 @@ void ServerGame::turn_handler()  {
     turn_message.events = events;
     server_message.message_arguments = turn_message;
     turn_messages.push_back(server_message);
-    for (auto& [key, value] : clients) {
+    for (auto &[key, value] : clients) {
         value->send_message(server_message);
     }
     // Clearing attributes for next turn.
@@ -208,7 +313,7 @@ void ServerGame::turn_handler()  {
         ServerMessageToClient::GameEndedMessage game_ended;
         game_ended.scores = scores;
         server_message_ended.message_arguments = game_ended;
-        for (auto& [key, value] : clients) {
+        for (auto &[key, value] : clients) {
             value->send_message(server_message_ended);
         }
         // Clearing attributes for next game.
@@ -249,8 +354,9 @@ void ServerGame::accept_new_player(tcp::socket socket) {
 
     // Inserts a unique pointer to new client in a map of clients. ClientId is
     // the next available number.
-    size_t number_of_clients = clients.size();
-    clients[number_of_clients] = make_unique<ServerCommunication>(std::move(socket), this, buffer, number_of_clients);
+    ClientId number_of_clients = static_cast<ClientId>(clients.size());
+    clients[number_of_clients] =
+            make_unique<ServerCommunication>(std::move(socket), this, buffer, number_of_clients);
 
     // Preparing HelloMessage for new client.
     ServerMessageToClient server_message;
@@ -277,6 +383,7 @@ void ServerGame::accept_new_player(tcp::socket socket) {
         for (auto &t : turn_messages)
             clients.find(number_of_clients)->second->send_message(t);
     }
+    clients.find(number_of_clients)->second->receive_message();
 
 }
 
@@ -291,12 +398,7 @@ void ServerGame::check_game_to_start() {
 
 std::string ServerGame::get_player_address(ClientId client_id) {
 
-    string address = clients.find(client_id)->second->get_client_address();
-    uint16_t port = clients.find(client_id)->second->get_client_port();
-    char *client_address;
-    sprintf(client_address, "%s:%u", address.c_str(), port);
-    string string_address(client_address);
-    return string_address;
+    return clients.find(client_id)->second->get_client_address();
 
 }
 
@@ -306,7 +408,7 @@ void ServerGame::join_player(ClientMessageToServer &client_message, ClientId cli
     Player player;
     player.name = get<string>(client_message.message_arguments);
     player.address = get_player_address(client_id);
-    PlayerId player_id = players.size();
+    PlayerId player_id = static_cast<PlayerId>(players.size());
     players[player_id] = player;
     client_to_player[client_id] = player_id;
 
@@ -319,7 +421,7 @@ void ServerGame::join_player(ClientMessageToServer &client_message, ClientId cli
     server_message.message_arguments = accepted_player;
 
     // Sending AcceptedPlayerMessage to all clients.
-    for (auto& [key, value] : clients) {
+    for (auto &[key, value] : clients) {
         value->send_message(server_message);
     }
 
