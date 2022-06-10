@@ -64,7 +64,8 @@ void ServerCommunication::receive_handler(const boost::system::error_code &error
 
 void ServerCommunication::send_message(ServerMessageToClient &server_message) {
 
-    size_t message_len;
+    size_t message_len = 0;
+    fill(write_buffer.begin(), write_buffer.end(), 0);
     buffer.write_server_message_to_client(server_message, write_buffer, &message_len);
     socket.async_send(boost::asio::buffer(write_buffer, message_len),
             [this](boost::system::error_code error, size_t send_length) {

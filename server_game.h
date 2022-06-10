@@ -1,6 +1,8 @@
 #ifndef SERVER_GAME_H
 #define SERVER_GAME_H
 
+#include <random>
+#include <cstdint>
 #include <set>
 #include "server_communication.h"
 
@@ -14,6 +16,7 @@ private:
     boost::asio::io_context io;
     boost::asio::steady_timer timer;
     Buffer buffer;
+    std::minstd_rand random;
 
     std::map<ClientId, server_communication_ptr> clients;
     std::map<PlayerId, Player> players;
@@ -23,13 +26,28 @@ private:
     std::map<BombId, Bomb> bombs;
     std::set<std::pair<CoordinateSize, CoordinateSize>> explosions;
     std::map<PlayerId, Score> scores;
-    std::vector<ServerMessageToClient::TurnMessage> turn_messages;
-    std::vector<ServerMessageToClient::AcceptedPlayerMessage> accepted_players;
+    std::vector<ServerMessageToClient> turn_messages;
+    std::vector<ServerMessageToClient> accepted_players;
+    std::map<ClientId, PlayerId> client_to_player;
+    std::map<PlayerId, ClientMessageToServer> client_messages;
+    std::vector<ServerMessageToClient::Event> events;
     bool is_lobby;
+
+    void start_game();
+
+    void play_game();
+
+    void turn_handler();
 
     void clear_turn();
 
     void clear_game();
+
+    void check_game_to_start();
+
+    std::string get_player_address(ClientId client_id);
+
+    void join_player(ClientMessageToServer &client_message, ClientId client_id);
 
 public:
 

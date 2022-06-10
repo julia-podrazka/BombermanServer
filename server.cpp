@@ -77,7 +77,7 @@ void Server::accept_players(tcp::acceptor *acceptor, ServerGame *server_game) {
 
     acceptor->async_accept([this, &acceptor, &server_game](boost::system::error_code ec, tcp::socket socket) {
         if (!ec) {
-            // akceptować playerów
+            server_game->accept_new_player(std::move(socket));
         }
         accept_players(acceptor, server_game);
     });
