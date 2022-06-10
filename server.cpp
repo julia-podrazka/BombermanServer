@@ -75,6 +75,18 @@ void Server::parse_program_options(int argc, char *argv[]) {
 
 void Server::accept_players(tcp::acceptor *acceptor, ServerGame *server_game) {
 
+    // TODO Usunąć
+//    try {
+//        acceptor->async_accept([this, &acceptor, &server_game](boost::system::error_code ec, tcp::socket socket) {
+//            if (!ec) {
+//                socket.set_option(tcp::no_delay(true));
+//                server_game->accept_new_player(std::move(socket));
+//            }
+//            accept_players(acceptor, server_game);
+//        });
+//    } catch (const exception &e) {
+//        accept_players(acceptor, server_game);
+//    }
     acceptor->async_accept([this, &acceptor, &server_game](boost::system::error_code ec, tcp::socket socket) {
         if (!ec) {
             socket.set_option(tcp::no_delay(true));
@@ -87,66 +99,7 @@ void Server::accept_players(tcp::acceptor *acceptor, ServerGame *server_game) {
 
 int main(int argc, char* argv[]) {
 
-    // TODO Usunąć poniżej
-
-    std::cout << "Hello, World!" << std::endl;
-
     Buffer buffer;
-
-    ServerMessageToClient message;
-    message.message_type = ServerMessageToClient::Turn;
-//    ServerMessageToClient::HelloMessage hello;
-//    hello.server_name = "aassdd";
-//    hello.bomb_timer = 3;
-//    hello.explosion_radius = 4;
-//    hello.game_length = 5;
-//    hello.size_y = 6;
-//    hello.size_x = 7;
-//    hello.players_count = 8;
-//    message.message_arguments = hello;
-    ServerMessageToClient::TurnMessage turn;
-    turn.turn = 1;
-    ServerMessageToClient::Event event1;
-    event1.message_type = ServerMessageToClient::Event::BombExploded;
-    vector<uint8_t> v1 = {1, 2, 3, 4};
-    Position p1;
-    p1.x = 1;
-    p1.y = 2;
-    vector<Position> v2 = {p1};
-    ServerMessageToClient::Event::BombExplodedMessage bomb;
-    bomb.id = 9;
-    bomb.robots_destroyed = v1;
-    bomb.blocks_destroyed = v2;
-    event1.message_arguments = bomb;
-    vector<ServerMessageToClient::Event> v3 = {event1};
-    turn.events = v3;
-    message.message_arguments = turn;
-
-    ClientMessageToServer client;
-    vector<uint8_t> vector_client = {0, 8, 197, 187, 195, 179, 197, 130, 196, 135, 33};
-    try {
-        buffer.read_client_message_to_server(client, vector_client, vector_client.size());
-    } catch (const char *msg) {
-        if (strcmp(msg, "Message not long enough") == 0)
-            cout << "Message not long\n";
-        else
-            cout << "Message wrong\n";
-        exit(1);
-    }
-    cout << "Reading message from client to server\n";
-    cout << "Message type: " << client.message_type << '\n';
-    cout << "Name: " << get<string>(client.message_arguments) << '\n';
-
-    size_t len = 0;
-    vector<uint8_t> vector;
-    vector.resize(MAX_BUFFER_SIZE);
-    fill(vector.begin(), vector.end(), 0);
-    buffer.write_server_message_to_client(message, vector, &len);
-
-    for (size_t i = 0; i < len; i++)
-        printf("%d", vector[i]);
-
-    cout << "\nEnd of buffer" << '\n';
 
     // Parse program options.
     Server server;

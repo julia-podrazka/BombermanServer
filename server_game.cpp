@@ -159,18 +159,12 @@ void ServerGame::check_bombs() {
             ServerMessageToClient::Event::BombExplodedMessage bomb;
             bomb.id = key;
             for (auto &explosion : explosions) {
-                // TODO Usunąć
-                cout << "Explosion x: " << explosion.first << ", y: " << explosion.second << '\n';
-                for (auto &b : blocks)
-                    cout << "Blocks x: " << b.first << ", y: " << b.second << '\n';
                 // Block should be destroyed.
                 if (blocks.contains(pair<CoordinateSize, CoordinateSize>(explosion.first,
                         explosion.second))) {
                     Position p;
                     p.x = explosion.first;
                     p.y = explosion.second;
-                    // TODO Usunąć
-                    cout << "Block destroyed x: " << p.x << ", y: " << p.y << '\n';
                     bomb.blocks_destroyed.push_back(p);
                     blocks.erase(pair<CoordinateSize, CoordinateSize>(explosion.first,
                                                                       explosion.second));
@@ -278,6 +272,7 @@ void ServerGame::check_players() {
             moved.position = p;
             event.message_arguments = moved;
             events.push_back(event);
+            player_positions[key] = p;
             // We also have to update scores for this player.
             scores.find(key)->second += 1;
         } else {
@@ -308,11 +303,8 @@ void ServerGame::turn_handler()  {
     // Clearing attributes for next turn.
     clear_turn();
 
-//    timer.expires_from_now(boost::asio::chrono::milliseconds(game_options.turn_duration));
-
     // Checking if game should end.
-    if (turn == game_options.game_length) {
-        cout << "Game ended\n";
+    if (turn == game_options.game_length + 2) {
         // Sending GameEndedMessage.
         ServerMessageToClient server_message_ended;
         server_message_ended.message_type = ServerMessageToClient::GameEnded;
@@ -460,5 +452,13 @@ void ServerGame::process_client_message(ClientMessageToServer &client_message, C
             break;
         }
     }
+
+}
+
+// Removes client from clients map but still holds the client's robot position
+// if client was a player.
+void ServerGame::disconnect_client(ClientId client_id) {
+
+    clients.erase(client_id);
 
 }

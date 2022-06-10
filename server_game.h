@@ -69,6 +69,8 @@ public:
 
     void process_client_message(ClientMessageToServer &client_message, ClientId client_id);
 
+    void disconnect_client(ClientId client_id);
+
 };
 
 #endif

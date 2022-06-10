@@ -60,8 +60,9 @@ void ServerCommunication::receive_handler(const boost::system::error_code &error
                 // TODO disconnect client
             }
         }
-    } else {
-        // TODO co się powinno stać jak error
+    } else if (error == boost::asio::error::eof) {
+        // If we get eof, client disconnected.
+        server_game->disconnect_client(client_id);
     }
 
 }
